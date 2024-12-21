@@ -1,0 +1,71 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**.yml'
+      - 'docker/**'
+      - 'helm/**'
+      - 'kubernetes/**'
+      - 'terraform/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.2
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run tests
+        run: php artisan test
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com
+
+      - name: Build Docker image
+        run: docker build -t <AWS_ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/laravel-app:latest .
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push <AWS_ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/laravel-app:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up AWS CLI
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1
+
+      - name: Deploy to EKS using Helm
+        run: |
+          helm upgrade --install laravel-app ./helm/laravel-app --namespace default --set image.repository=<AWS_ACCOUNT_ID>.dkr.ecr.ap-south-1.amazonaws.com/laravel-app,image.tag=latest

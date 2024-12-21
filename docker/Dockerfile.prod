@@ -1,0 +1,42 @@
+FROM php:8.2-fpm-alpine
+
+# Install system dependencies and PHP extensions
+RUN apk --update add \
+    nginx \
+    supervisor \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    libwebp-dev \
+    libxpm-dev \
+    freetype-dev \
+    libxml2-dev \
+    git \
+    curl \
+    bash \
+    && apk add --no-cache --virtual .build-deps gcc g++ make autoconf libc-dev libmcrypt-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp \
+    && docker-php-ext-install gd pdo pdo_mysql zip \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del .build-deps
+
+# Set working directory
+WORKDIR /var/www
+
+# Copy application files
+COPY . /var/www
+
+# Set correct permissions
+RUN chown -R www-data:www-data /var/www
+
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Install Laravel dependencies
+RUN composer install --no-dev --optimize-autoloader --prefer-dist
+
+# Expose necessary ports
+EXPOSE 80
+
+# Start PHP-FPM
+CMD ["php-fpm"]

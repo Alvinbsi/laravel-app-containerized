@@ -4,7 +4,7 @@ provider "aws" {
 
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
-  cluster_name    = "example-eks-cluster"
+  cluster_name    = "alvin-eks-cluster"
   cluster_version = "1.27"
 
   node_groups = {

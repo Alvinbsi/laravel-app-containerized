@@ -4,6 +4,7 @@ provider "aws" {
 
 module "eks" {
   source          = "terraform-aws-modules/eks/aws"
+  version         = "18.0.0" # Specify a compatible version
   cluster_name    = "alvin-eks-cluster"
   cluster_version = "1.27"
 
@@ -15,7 +16,7 @@ module "eks" {
   node_groups = {
     default = {
       desired_capacity = 2
-      max_size         = 3
+      max_size         = 2
       min_size         = 1
     }
   }
